@@ -282,8 +282,8 @@
                 (
                   way["emergency:waiting_area"="yes"](${bbox});
                   way["emergency:camp_area"="yes"](${bbox});
-                  way["emergency:staging_area_rescue"="yes"](${bbox});
-                  way["emergency:logistic_entry_rescue"="yes"](${bbox});
+                  way["emergency:staging_area"="rescue"](${bbox});
+                  way["emergency:logistic_entry"="rescue"](${bbox});
                 );
                 out body; >; out skel qt;`;
             const loader = document.getElementById('loader');
