@@ -75,9 +75,9 @@
                             <span class="group-hover:text-blue-600 transition text-gray-700 font-medium" data-i18n="waiting">Attesa</span>
                         </label>
                         <label class="flex items-center gap-3 cursor-pointer group">
-                            <input type="checkbox" checked class="filter-check w-4 h-4 rounded" value="shelter">
+                            <input type="checkbox" checked class="filter-check w-4 h-4 rounded" value="camp">
                             <span class="w-4 h-4 rounded-sm bg-red-600 border border-red-800"></span> 
-                            <span class="group-hover:text-blue-600 transition text-gray-700 font-medium" data-i18n="shelter">Ricovero</span>
+                            <span class="group-hover:text-blue-600 transition text-gray-700 font-medium" data-i18n="camp">Ricovero</span>
                         </label>
                         <label class="flex items-center gap-3 cursor-pointer group">
                             <input type="checkbox" checked class="filter-check w-4 h-4 rounded" value="staging">
@@ -123,7 +123,7 @@
                 refresh_btn: "Aggiorna in quest'area",
                 legend_title: "Legenda Aree:",
                 waiting: "Attesa (Waiting)",
-                shelter: "Ricovero (Shelter)",
+                camp: "Ricovero (camp)",
                 staging: "Ammassamento (Staging)",
                 logistic: "Logistica (Entry)",
                 details_title: "Dettagli Poligono",
@@ -140,7 +140,7 @@
                 refresh_btn: "Refresh this area",
                 legend_title: "Legend:",
                 waiting: "Waiting Area",
-                shelter: "Shelter Area",
+                camp: "camp Area",
                 staging: "Staging Area",
                 logistic: "Logistic Entry",
                 details_title: "Polygon Details",
@@ -185,7 +185,7 @@
 
         const layers = {
             waiting: L.layerGroup().addTo(map),
-            shelter: L.layerGroup().addTo(map),
+            camp: L.layerGroup().addTo(map),
             staging: L.layerGroup().addTo(map),
             logistic: L.layerGroup().addTo(map),
             other: L.layerGroup().addTo(map)
@@ -193,7 +193,7 @@
 
         const config = {
             waiting: { color: '#22c55e', label: translations.waiting },
-            shelter: { color: '#dc2626', label: translations.shelter },
+            camp: { color: '#dc2626', label: translations.camp },
             staging: { color: '#eab308', label: translations.staging },
             logistic: { color: '#9333ea', label: translations.logistic }
         };
@@ -222,9 +222,9 @@
 
         function getAreaType(tags) {
             if (tags['emergency:waiting_area'] === 'yes') return 'waiting';
-            if (tags['emergency:shelter_area'] === 'yes') return 'shelter';
-            if (tags['emergency:staging_area_rescue'] === 'yes') return 'staging';
-            if (tags['emergency:logistic_entry_rescue'] === 'yes') return 'logistic';
+            if (tags['emergency:camp_area'] === 'yes') return 'camp';
+            if (tags['emergency:staging_area'] === 'rescue') return 'staging';
+            if (tags['emergency:logistic_entry'] === 'rescue') return 'logistic';
             return 'other';
         }
 
@@ -281,7 +281,7 @@
             const query = `[out:json][timeout:30];
                 (
                   way["emergency:waiting_area"="yes"](${bbox});
-                  way["emergency:shelter_area"="yes"](${bbox});
+                  way["emergency:camp_area"="yes"](${bbox});
                   way["emergency:staging_area_rescue"="yes"](${bbox});
                   way["emergency:logistic_entry_rescue"="yes"](${bbox});
                 );
