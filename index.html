@@ -174,7 +174,7 @@
         const map = L.map('map', { 
             zoomControl: false,
             preferCanvas: true 
-        }).setView([41.9028, 12.4964], 14);
+        }).setView([45.6717, 11.9276], 14);
 
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -197,6 +197,10 @@
             staging: { color: '#eab308', label: translations.staging },
             logistic: { color: '#9333ea', label: translations.logistic }
         };
+
+        function getFeatureName(tags, fallbackIt, fallbackEn) {
+            return tags.name || (currentLang === 'it' ? fallbackIt : fallbackEn);
+        }
 
         async function searchLocation() {
             const input = document.getElementById('search-input').value;
@@ -249,7 +253,7 @@
             const popupContent = `
                 <div class="p-1 min-w-[180px]">
                     <div class="text-[9px] uppercase font-black text-gray-400 tracking-tighter">${style.label}</div>
-                    <strong class="text-sm block border-b pb-1 mb-1 text-slate-800">${tags.name || (currentLang === 'it' ? 'Area Poligonale' : 'Polygon Area')}</strong>
+                    <strong class="text-sm block border-b pb-1 mb-1 text-slate-800">${getFeatureName(tags, 'Area Poligonale', 'Polygon Area')}</strong>
                     <div class="text-[11px] text-gray-600">
                         ${tags.operator ? `<div><b>${translations.operator}:</b> ${tags.operator}</div>` : ''}
                         ${tags.capacity ? `<div><b>${translations.capacity}:</b> ${tags.capacity}</div>` : ''}
@@ -275,6 +279,50 @@
             else polygon.addTo(layers.other);
         }
 
+        function createSignFeature(el) {
+            const tags = el.tags || {};
+            const type = getAreaType(tags);
+            if (el.type !== 'node' || !el.lat || !el.lon || tags.man_made !== 'sign' || type === 'other') return;
+
+            const style = config[type] || { color: '#64748b', label: 'Sign' };
+            const marker = L.circleMarker([el.lat, el.lon], {
+                radius: 7,
+                color: '#1f2937',
+                weight: 1.5,
+                fillColor: style.color,
+                fillOpacity: 0.95
+            });
+
+            const popupContent = `
+                <div class="p-1 min-w-[180px]">
+                    <div class="text-[9px] uppercase font-black text-gray-400 tracking-tighter">${style.label} · ${currentLang === 'it' ? 'Cartello' : 'Sign'}</div>
+                    <strong class="text-sm block border-b pb-1 mb-1 text-slate-800">${getFeatureName(tags, 'Cartello emergenza', 'Emergency sign')}</strong>
+                    <div class="text-[11px] text-gray-600">
+                        ${tags.operator ? `<div><b>${translations.operator}:</b> ${tags.operator}</div>` : ''}
+                        ${tags.capacity ? `<div><b>${translations.capacity}:</b> ${tags.capacity}</div>` : ''}
+                    </div>
+                    <a href="https://www.openstreetmap.org/node/${el.id}" target="_blank" class="text-blue-600 text-[10px] font-bold mt-2 block hover:underline italic">${translations.osm_link}</a>
+                </div>
+            `;
+
+            marker.bindPopup(popupContent);
+            marker.on('click', () => {
+                const infoBox = document.getElementById('info-box');
+                const infoContent = document.getElementById('info-content');
+                infoBox.classList.remove('hidden');
+                let html = `<div class="font-bold text-slate-800 mb-2 border-b pb-1 text-xs">${getFeatureName(tags, 'Cartello emergenza', 'Emergency sign')}</div>`;
+                for (let key in tags) {
+                    html += `<div class="flex justify-between gap-3 border-b border-gray-50 py-1">
+                        <span class="text-gray-400" style="font-size: 8px;">${key}</span>
+                        <span class="text-right font-medium text-slate-700">${tags[key]}</span>
+                    </div>`;
+                }
+                infoContent.innerHTML = html;
+            });
+
+            marker.addTo(layers[type]);
+        }
+
         async function fetchData() {
             const bounds = map.getBounds();
             const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
@@ -284,6 +332,10 @@
                   way["emergency:camp_area"="yes"](${bbox});
                   way["emergency:staging_area"="rescue"](${bbox});
                   way["emergency:logistic_entry"="rescue"](${bbox});
+                  node["man_made"="sign"]["emergency:waiting_area"="yes"](${bbox});
+                  node["man_made"="sign"]["emergency:camp_area"="yes"](${bbox});
+                  node["man_made"="sign"]["emergency:staging_area"="rescue"](${bbox});
+                  node["man_made"="sign"]["emergency:logistic_entry"="rescue"](${bbox});
                 );
                 out body; >; out skel qt;`;
             const loader = document.getElementById('loader');
@@ -299,8 +351,10 @@
                 data.elements.forEach(el => { if (el.type === 'node') nodesMap[el.id] = el; });
                 Object.values(layers).forEach(l => l.clearLayers());
                 const features = data.elements.filter(el => el.type === 'way' && el.tags && getAreaType(el.tags) !== 'other');
+                const signs = data.elements.filter(el => el.type === 'node' && el.tags && el.tags.man_made === 'sign' && getAreaType(el.tags) !== 'other');
                 if (features.length === 0) { console.log(translations.no_data); } 
                 else { features.forEach(f => createFeature(f, nodesMap)); }
+                signs.forEach(s => createSignFeature(s));
             } catch (error) { console.error(error); }
             finally { loader.classList.add('hidden'); }
         }
