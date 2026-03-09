@@ -235,6 +235,34 @@
             return 2 * R * Math.asin(Math.sqrt(h));
         }
 
+        function isSettlementResult(item) {
+            const placeType = item.type || '';
+            const classType = item.class || '';
+            const address = item.address || {};
+            const hasCityField = Boolean(address.city || address.town || address.village || address.municipality);
+            const isPlaceClass = classType === 'place';
+            const isKnownSettlement = ['city', 'town', 'village', 'municipality', 'hamlet', 'suburb'].includes(placeType);
+            return hasCityField || (isPlaceClass && isKnownSettlement);
+        }
+
+        function largeAreaPenalty(item) {
+            const placeType = item.type || '';
+            const classType = item.class || '';
+            const adminLevel = Number(item.address?.admin_level || item.extratags?.admin_level || 0);
+
+            if (classType === 'boundary' && placeType === 'administrative') {
+                // Penalizza province/regioni e aree vaste, ma non i comuni.
+                if (adminLevel >= 4 && adminLevel <= 7) return 0.9;
+                if (adminLevel > 0 && adminLevel < 8) return 0.5;
+            }
+
+            if (['state', 'region', 'county', 'province'].includes(placeType)) {
+                return 0.7;
+            }
+
+            return 0;
+        }
+
         function pickBestResult(results, input, center, isPostalSearch) {
             if (!results.length) return null;
 
@@ -249,7 +277,9 @@
                 const importance = Number(item.importance) || 0;
                 const postcode = (item.address?.postcode || '').toLowerCase();
                 const postcodeMatch = isPostalSearch && postcode.replace(/\s/g, '') === normalizedInput ? 1 : 0;
-                const score = postcodeMatch * 5 + importance - Math.min(distance, 3000) / 3000 - idx * 0.02;
+                const settlementBoost = !isPostalSearch && isSettlementResult(item) ? 1 : 0;
+                const penalty = !isPostalSearch ? largeAreaPenalty(item) : 0;
+                const score = postcodeMatch * 5 + importance + settlementBoost - penalty - Math.min(distance, 3000) / 3000 - idx * 0.02;
                 return { item, score };
             });
 
