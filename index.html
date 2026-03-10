@@ -30,7 +30,7 @@
             fill-opacity: 0.6 !important;
             stroke-width: 4px !important;
         }
-        .refresh-icon-spin-active {
+        .refresh-icon-spin {
             animation: refresh-spin 1.8s linear infinite;
         }
         @keyframes refresh-spin {
@@ -71,7 +71,7 @@
                 <i data-lucide="layers" class="w-5 h-5"></i>
             </button>
             <button onclick="fetchData(true)" class="bg-blue-600 text-white p-3 rounded-full shadow-xl border border-blue-700 hover:bg-blue-700 transition" title="Aggiorna area">
-                <i id="refresh-icon" data-lucide="refresh-cw" class="w-5 h-5"></i>
+                <i data-lucide="refresh-cw" class="w-5 h-5 refresh-icon-spin"></i>
             </button>
             <button onclick="toggleInfoPanel()" class="bg-white p-3 rounded-full shadow-xl border border-gray-200 text-slate-700 hover:bg-slate-50 transition" title="Mostra/Nascondi dettagli">
                 <i data-lucide="info" class="w-5 h-5"></i>
