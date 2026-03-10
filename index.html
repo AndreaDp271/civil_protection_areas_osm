@@ -34,11 +34,11 @@
 </head>
 <body class="bg-gray-100 font-sans">
 
-    <!-- Overlay di caricamento -->
-    <div id="loader" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] hidden">
-        <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center">
-            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-            <p id="loader-text" class="text-gray-700 font-semibold text-center" data-i18n="loading">Caricamento...</p>
+    <!-- Barra di caricamento (non blocca interazioni mappa) -->
+    <div id="loader" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1200] hidden pointer-events-none">
+        <div class="bg-slate-900/90 text-white px-4 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700 backdrop-blur-sm">
+            <div class="loader ease-linear rounded-full border-2 border-t-2 border-slate-500 h-5 w-5"></div>
+            <p id="loader-text" class="text-xs md:text-sm font-semibold text-center" data-i18n="loading" aria-live="polite">Caricamento...</p>
         </div>
     </div>
 
@@ -65,7 +65,7 @@
             </h1>
             
             <div class="space-y-3">
-                <button onclick="fetchData()" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-2 px-4 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm">
+                <button onclick="fetchData(true)" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-2 px-4 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm">
                     <i data-lucide="refresh-cw" class="w-4 h-4"></i> <span data-i18n="refresh_btn">Aggiorna area</span>
                 </button>
                 
@@ -204,6 +204,7 @@
         };
 
         const overpassCache = new Map();
+        const loadedElementIds = new Set();
         let activeOverpassController = null;
         const overpassEndpoints = [
             "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
@@ -237,6 +238,15 @@
             }
 
             throw new Error(`Overpass fallback failed: ${errors.join(' | ')}`);
+        }
+
+        function updateLoaderText(message) {
+            const loaderText = document.getElementById('loader-text');
+            loaderText.textContent = message;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
 
         function getFeatureName(tags, fallbackIt, fallbackEn) {
@@ -489,13 +499,19 @@
             marker.addTo(layers[type]);
         }
 
-        async function fetchData() {
+        async function fetchData(forceRefresh = false) {
             const bounds = map.getBounds();
             const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
             const cacheKey = getCacheKeyFromBounds(bounds);
             const cachedData = overpassCache.get(cacheKey);
 
-            if (cachedData) {
+            if (forceRefresh) {
+                overpassCache.clear();
+                loadedElementIds.clear();
+                Object.values(layers).forEach(l => l.clearLayers());
+            }
+
+            if (!forceRefresh && cachedData) {
                 renderData(cachedData);
                 return;
             }
@@ -513,6 +529,7 @@
                 );
                 out geom qt;`;
             const loader = document.getElementById('loader');
+            updateLoaderText(translations.loading);
             loader.classList.remove('hidden');
 
             if (activeOverpassController) {
@@ -521,34 +538,59 @@
 
             activeOverpassController = new AbortController();
 
+            const maxRetries = 3;
             try {
-                const response = await fetch("https://overpass.openstreetmap.ru/cgi/interpreter", {
-                    method: 'POST',
-                    body: 'data=' + encodeURIComponent(query),
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    signal: activeOverpassController.signal
-                });
-                const data = await response.json();
-                overpassCache.set(cacheKey, data);
-                renderData(data);
+                let data = null;
+
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    try {
+                        if (attempt > 1) {
+                            updateLoaderText(`${translations.loading} (${attempt}/${maxRetries})`);
+                        }
+                        data = await fetchOverpassWithFallback(query, activeOverpassController.signal);
+                        break;
+                    } catch (error) {
+                        if (error.name === 'AbortError') throw error;
+                        if (attempt === maxRetries) throw error;
+                        await sleep(800 * attempt);
+                    }
+                }
+
+                if (data) {
+                    overpassCache.set(cacheKey, data);
+                    renderData(data);
+                }
             } catch (error) {
                 if (error.name !== 'AbortError') console.error(error);
             }
-            finally { loader.classList.add('hidden'); }
+            finally {
+                updateLoaderText(translations.loading);
+                loader.classList.add('hidden');
+            }
         }
 
         function renderData(data) {
-            Object.values(layers).forEach(l => l.clearLayers());
+            if (!data || !Array.isArray(data.elements)) return;
             const features = data.elements.filter(el => el.type === 'way' && el.tags && getAreaType(el.tags) !== 'other');
             const signs = data.elements.filter(el => el.type === 'node' && el.tags && el.tags.man_made === 'sign' && getAreaType(el.tags) !== 'other');
 
             if (features.length === 0) {
                 console.log(translations.no_data);
             } else {
-                features.forEach(f => createFeature(f));
+                features.forEach(f => {
+                    const uniqueId = `${f.type}:${f.id}`;
+                    if (loadedElementIds.has(uniqueId)) return;
+                    loadedElementIds.add(uniqueId);
+                    createFeature(f);
+                });
             }
 
-            signs.forEach(s => createSignFeature(s));
+            signs.forEach(s => {
+                const uniqueId = `${s.type}:${s.id}`;
+                if (loadedElementIds.has(uniqueId)) return;
+                loadedElementIds.add(uniqueId);
+                createSignFeature(s);
+            });
         }
 
         document.querySelectorAll('.filter-check').forEach(check => {
@@ -563,6 +605,12 @@
         map.on('locationerror', () => {
             console.log("Geolocalizzazione fallita. Fallback.");
             fetchData();
+        });
+
+        let fetchDebounce = null;
+        map.on('moveend', () => {
+            if (fetchDebounce) clearTimeout(fetchDebounce);
+            fetchDebounce = setTimeout(() => fetchData(), 450);
         });
 
         window.onload = () => {
