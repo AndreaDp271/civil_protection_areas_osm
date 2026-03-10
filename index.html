@@ -34,11 +34,11 @@
 </head>
 <body class="bg-gray-100 font-sans">
 
-    <!-- Overlay di caricamento -->
-    <div id="loader" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] hidden">
-        <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center">
-            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-            <p id="loader-text" class="text-gray-700 font-semibold text-center" data-i18n="loading">Caricamento...</p>
+    <!-- Barra di caricamento (non blocca interazioni mappa) -->
+    <div id="loader" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1200] hidden pointer-events-none">
+        <div class="bg-slate-900/90 text-white px-4 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700 backdrop-blur-sm">
+            <div class="loader ease-linear rounded-full border-2 border-t-2 border-slate-500 h-5 w-5"></div>
+            <p id="loader-text" class="text-xs md:text-sm font-semibold text-center" data-i18n="loading" aria-live="polite">Caricamento...</p>
         </div>
     </div>
 
