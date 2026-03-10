@@ -536,6 +536,13 @@
             marker.addTo(layers[type]);
         }
 
+
+        function setRefreshSpinning(isSpinning) {
+            const refreshIcon = document.getElementById('refresh-icon');
+            if (!refreshIcon) return;
+            refreshIcon.classList.toggle('refresh-icon-spin-active', isSpinning);
+        }
+
         async function fetchData(forceRefresh = false) {
             const bounds = map.getBounds();
             const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
@@ -568,6 +575,7 @@
             const loader = document.getElementById('loader');
             updateLoaderText(translations.loading);
             loader.classList.remove('hidden');
+            setRefreshSpinning(true);
 
             if (activeOverpassController) {
                 activeOverpassController.abort();
@@ -601,6 +609,7 @@
                 if (error.name !== 'AbortError') console.error(error);
             }
             finally {
+                setRefreshSpinning(false);
                 updateLoaderText(translations.loading);
                 loader.classList.add('hidden');
             }
