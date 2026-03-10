@@ -16,7 +16,7 @@
         body, html { height: 100%; margin: 0; padding: 0; overflow: hidden; }
         #map { height: 100vh; width: 100%; z-index: 1; background: #f0f0f0; }
         .loader {
-            border-top-color: #3498db;
+            border-top-color: #ffffff;
             animation: spinner 1.5s linear infinite;
         }
         @keyframes spinner {
@@ -71,7 +71,7 @@
                 <i data-lucide="layers" class="w-5 h-5"></i>
             </button>
             <button onclick="fetchData(true)" class="bg-blue-600 text-white p-3 rounded-full shadow-xl border border-blue-700 hover:bg-blue-700 transition" title="Aggiorna area">
-                <i data-lucide="refresh-cw" class="w-5 h-5 refresh-icon-spin"></i>
+                <i id="refresh-icon" data-lucide="refresh-cw" class="w-5 h-5 text-white"></i>
             </button>
             <button onclick="toggleInfoPanel()" class="bg-white p-3 rounded-full shadow-xl border border-gray-200 text-slate-700 hover:bg-slate-50 transition" title="Mostra/Nascondi dettagli">
                 <i data-lucide="info" class="w-5 h-5"></i>
@@ -540,10 +540,11 @@
         function setRefreshSpinning(isSpinning) {
             const refreshIcon = document.getElementById('refresh-icon');
             if (!refreshIcon) return;
-            refreshIcon.classList.toggle('refresh-icon-spin-active', isSpinning);
+            refreshIcon.classList.toggle('refresh-icon-spin', isSpinning);
         }
 
         async function fetchData(forceRefresh = false) {
+            const isManualRefresh = forceRefresh;
             const bounds = map.getBounds();
             const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
             const cacheKey = getCacheKeyFromBounds(bounds);
@@ -573,9 +574,11 @@
                 );
                 out geom qt;`;
             const loader = document.getElementById('loader');
-            updateLoaderText(translations.loading);
-            loader.classList.remove('hidden');
-            setRefreshSpinning(true);
+            if (isManualRefresh) {
+                updateLoaderText(translations.loading);
+                loader.classList.remove('hidden');
+                setRefreshSpinning(true);
+            }
 
             if (activeOverpassController) {
                 activeOverpassController.abort();
@@ -609,9 +612,11 @@
                 if (error.name !== 'AbortError') console.error(error);
             }
             finally {
-                setRefreshSpinning(false);
-                updateLoaderText(translations.loading);
-                loader.classList.add('hidden');
+                if (isManualRefresh) {
+                    setRefreshSpinning(false);
+                    updateLoaderText(translations.loading);
+                    loader.classList.add('hidden');
+                }
             }
         }
 
