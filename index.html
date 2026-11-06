@@ -12,116 +12,275 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
     <style>
+        :root {
+            --navy: #0e1b33;
+            --navy-2: #1d3461;
+            --accent: #ff6a13;
+            --glass: rgba(255, 255, 255, 0.84);
+            --line: rgba(15, 23, 42, 0.08);
+            --ink: #0f172a;
+            --muted: #64748b;
+            --ease-out: cubic-bezier(.2, .8, .2, 1);
+            --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+        }
         body, html { height: 100%; margin: 0; padding: 0; overflow: hidden; }
-        #map { height: 100vh; width: 100%; z-index: 1; background: #f0f0f0; }
-        .loader {
-            border-top-color: #ffffff;
-            animation: spinner 1.5s linear infinite;
+        body { font-family: 'Barlow', system-ui, sans-serif; color: var(--ink); background: #e5e7eb; }
+        #map { height: 100vh; width: 100%; z-index: 1; background: #eef1f4; }
+        .font-cond { font-family: 'Barlow Condensed', 'Barlow', sans-serif; letter-spacing: .02em; }
+
+        /* Tiles leggermente desaturate: le aree colorate risaltano */
+        .leaflet-tile-pane { filter: saturate(.7) contrast(1.03) brightness(1.02); }
+
+        /* --- Superfici vetro --- */
+        .glass {
+            background: var(--glass);
+            backdrop-filter: blur(14px) saturate(1.6);
+            -webkit-backdrop-filter: blur(14px) saturate(1.6);
+            border: 1px solid rgba(255,255,255,.7);
+            box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 10px 30px -10px rgba(14,27,51,.35), 0 2px 6px rgba(14,27,51,.08);
         }
-        @keyframes spinner {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .leaflet-interactive {
-            transition: fill-opacity 0.2s, stroke-width 0.2s;
-        }
-        .leaflet-interactive:hover {
-            fill-opacity: 0.6 !important;
-            stroke-width: 4px !important;
-        }
-        .refresh-icon-spin {
-            animation: refresh-spin 1.8s linear infinite;
-        }
-        @keyframes refresh-spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+
+        /* --- Entrata iniziale scaglionata --- */
+        .enter { animation: enter .6s var(--ease-out) backwards; animation-delay: var(--d, 0ms); }
+        @keyframes enter { from { opacity: 0; transform: translateY(-14px) scale(.97); } }
+
+        /* --- Pannelli: pop in / pop out --- */
+        .panel { transform-origin: top right; }
+        .panel:not(.hidden) { animation: pop-in .32s var(--ease-spring) both; }
+        .panel.is-closing { animation: pop-out .18s ease-in forwards; }
+        @keyframes pop-in { from { opacity: 0; transform: translateY(-8px) scale(.94); } }
+        @keyframes pop-out { to { opacity: 0; transform: translateY(-6px) scale(.96); } }
+        #search-help-box { transform-origin: top center; }
+
+        #loader:not(.hidden) { animation: rise .35s var(--ease-spring) both; }
+        #loader.is-closing { animation: sink .2s ease-in forwards; }
+        @keyframes rise { from { opacity: 0; transform: translate(-50%, 20px) scale(.9); } to { transform: translate(-50%, 0); } }
+        @keyframes sink { from { transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, 16px) scale(.95); } }
+        .loader-bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 40%; border-radius: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: sweep 1.2s ease-in-out infinite; }
+        @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+        /* --- Ricerca --- */
+        .search-shell { transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out); }
+        .search-shell:focus-within { transform: translateY(1px) scale(1.015);
+            box-shadow: 0 0 0 3px rgba(255,106,19,.25), 0 14px 34px -10px rgba(14,27,51,.45); }
+        .search-shell:focus-within .search-ic { color: var(--accent); transform: rotate(-10deg) scale(1.1); }
+        .search-ic { transition: color .2s, transform .3s var(--ease-spring); }
+        .go-btn { background: linear-gradient(135deg, var(--accent), #ff8f3d); transition: transform .2s var(--ease-spring), box-shadow .2s; box-shadow: 0 4px 12px -2px rgba(255,106,19,.55); }
+        .go-btn:hover { transform: translateX(2px) scale(1.06); }
+        .go-btn:active { transform: scale(.92); }
+        .go-btn.is-busy svg { animation: refresh-spin .9s linear infinite; }
+
+        /* --- Bottoni flottanti --- */
+        .fab { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 9999px; color: var(--navy);
+            transition: transform .25s var(--ease-spring), box-shadow .25s, background-color .2s, color .2s; }
+        .fab:hover { transform: translateY(-2px) scale(1.06); }
+        .fab:active { transform: scale(.92); }
+        .fab:focus-visible, .go-btn:focus-visible { outline: 3px solid rgba(255,106,19,.6); outline-offset: 2px; }
+        .fab.is-active { background: var(--navy); color: #fff; border-color: var(--navy); }
+        .fab-primary { background: linear-gradient(135deg, var(--navy-2), var(--navy)); color: #fff; border: 1px solid rgba(255,255,255,.12);
+            box-shadow: 0 10px 24px -8px rgba(14,27,51,.7); }
+        .fab-primary:hover svg { transform: rotate(60deg); }
+        .fab svg { transition: transform .4s var(--ease-spring); }
+        .refresh-icon-spin { animation: refresh-spin 1s linear infinite; }
+        @keyframes refresh-spin { to { transform: rotate(360deg); } }
+        .fab.is-locating { animation: locating 1.2s ease-out infinite; }
+        @keyframes locating { 0% { box-shadow: 0 0 0 0 rgba(37,99,235,.45); } 100% { box-shadow: 0 0 0 16px rgba(37,99,235,0); } }
+
+        /* --- Legenda --- */
+        .legend-row { display: flex; align-items: center; gap: .7rem; padding: .55rem .6rem; border-radius: .75rem; cursor: pointer;
+            transition: background-color .2s, opacity .25s, transform .2s var(--ease-out); }
+        .legend-row:hover { background: rgba(14,27,51,.05); transform: translateX(-2px); }
+        .legend-row .swatch { width: 14px; height: 14px; border-radius: 4px; background: var(--c); flex: none;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 22%, transparent); transition: transform .3s var(--ease-spring), filter .25s, opacity .25s; }
+        .legend-row:hover .swatch { transform: rotate(45deg) scale(1.1); }
+        .legend-row .label { transition: opacity .25s; }
+        .legend-row .count { font: 500 11px 'JetBrains Mono', monospace; color: var(--muted); background: rgba(14,27,51,.06);
+            padding: 1px 7px; border-radius: 9999px; min-width: 26px; text-align: center; }
+        .count.bump { animation: bump .45s var(--ease-spring); }
+        @keyframes bump { 40% { transform: scale(1.35); background: var(--accent); color: #fff; } }
+        .legend-row .switch { position: relative; width: 30px; height: 18px; border-radius: 9999px; background: #cbd5e1; transition: background-color .25s; flex: none; }
+        .legend-row .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 9999px; background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .3s var(--ease-spring); }
+        .legend-row input:checked ~ .switch { background: var(--navy); }
+        .legend-row input:checked ~ .switch::after { transform: translateX(12px); }
+        .legend-row input:not(:checked) ~ .swatch { filter: grayscale(1); opacity: .45; transform: scale(.8); }
+        .legend-row input:not(:checked) ~ .label { opacity: .5; text-decoration: line-through; }
+        .legend-row input:focus-visible ~ .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        /* --- Info box --- */
+        .tag-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 18px; line-height: 1.1; color: var(--navy); margin-bottom: 6px; }
+        .tag-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: .75rem; padding: .35rem 0; border-bottom: 1px dashed var(--line);
+            animation: enter .35s var(--ease-out) backwards; animation-delay: calc(var(--i) * 25ms); }
+        .tag-row .k { color: var(--muted); font: 400 10px 'JetBrains Mono', monospace; word-break: break-all; }
+        .tag-row .v { color: var(--ink); font-size: 12px; font-weight: 500; text-align: right; word-break: break-word; }
+        .scroll-soft::-webkit-scrollbar { width: 6px; }
+        .scroll-soft::-webkit-scrollbar-thumb { background: rgba(14,27,51,.18); border-radius: 9999px; }
+
+        /* --- Aree poligonali (SVG) --- */
+        path.cpa-area { animation: area-in .7s var(--ease-out) both; transition: fill-opacity .2s, stroke-width .2s; }
+        path.cpa-area:hover { fill-opacity: .6; stroke-width: 4.5; }
+        path.cpa-area.is-selected { stroke-width: 4.5; stroke-dasharray: 10 7; fill-opacity: .55; animation: march .8s linear infinite; }
+        @keyframes area-in { from { opacity: 0; } }
+        @keyframes march { to { stroke-dashoffset: -17; } }
+
+        /* --- Cartelli: punto pulsante --- */
+        .cpa-sign { background: none; border: 0; }
+        .cpa-sign .dot, .cpa-sign .ring { position: absolute; inset: 0; border-radius: 9999px; background: var(--c); }
+        .cpa-sign .dot { inset: 3px; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); transition: transform .25s var(--ease-spring); }
+        .cpa-sign:hover .dot { transform: scale(1.3); }
+        .cpa-sign .ring { animation: ping 2.2s ease-out infinite; }
+        @keyframes ping { 0% { transform: scale(.6); opacity: .55; } 80%, 100% { transform: scale(2.2); opacity: 0; } }
+
+        /* --- Posizione utente --- */
+        .user-loc { background: none; border: 0; }
+        .user-loc .dot { position: absolute; inset: 4px; border-radius: 9999px; background: #2563eb; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(37,99,235,.6); }
+        .user-loc .ring { position: absolute; inset: 0; border-radius: 9999px; background: rgba(37,99,235,.35); animation: ping 2s ease-out infinite; }
+
+        /* --- Popup Leaflet --- */
+        .leaflet-popup-content-wrapper { border-radius: 16px; padding: 0; overflow: hidden; box-shadow: 0 18px 40px -12px rgba(14,27,51,.45); }
+        .leaflet-popup-content { margin: 0; font-family: 'Barlow', sans-serif; }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip-container { animation: popup-in .3s var(--ease-spring) both; transform-origin: bottom center; }
+        @keyframes popup-in { from { opacity: 0; transform: translateY(8px) scale(.92); } }
+        .leaflet-container a.leaflet-popup-close-button { top: 8px; right: 8px; color: #94a3b8; transition: color .2s, transform .2s; }
+        .leaflet-container a.leaflet-popup-close-button:hover { color: var(--ink); transform: rotate(90deg); }
+        .popup-card { border-top: 4px solid var(--c); padding: 12px 14px; min-width: 200px; }
+        .popup-kicker { display: inline-flex; align-items: center; gap: 6px; font: 700 10px 'Barlow Condensed', sans-serif; letter-spacing: .08em; text-transform: uppercase;
+            color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); padding: 2px 8px; border-radius: 9999px; }
+        .popup-kicker::before { content: ''; width: 6px; height: 6px; border-radius: 9999px; background: var(--c); }
+        .popup-title { display: block; font: 700 17px/1.15 'Barlow Condensed', sans-serif; color: var(--navy); margin: 6px 0 4px; }
+        .popup-meta { font-size: 12px; color: #475569; }
+        .popup-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; font-weight: 600; font-size: 12px; color: var(--navy-2) !important; transition: gap .2s, color .2s; }
+        .popup-link:hover { gap: 8px; color: var(--accent) !important; }
+
+        /* --- Zoom control --- */
+        .leaflet-bar { border: 0 !important; border-radius: 14px !important; overflow: hidden; }
+        .leaflet-bar a { width: 40px !important; height: 40px !important; line-height: 40px !important; color: var(--navy) !important;
+            background: var(--glass) !important; backdrop-filter: blur(12px); border-bottom-color: var(--line) !important; transition: background-color .2s; }
+        .leaflet-bar a:hover { background: #fff !important; }
+        .leaflet-control-zoom { box-shadow: 0 10px 30px -10px rgba(14,27,51,.35) !important; margin-bottom: 32px !important; }
+        .leaflet-control-attribution { background: rgba(255,255,255,.7) !important; backdrop-filter: blur(8px); border-radius: 8px 0 0 0; }
+
+        /* --- Toast --- */
+        #toast { transform: translate(-50%, -12px); opacity: 0; transition: opacity .25s, transform .35s var(--ease-spring); pointer-events: none; }
+        #toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
         }
     </style>
 </head>
-<body class="bg-gray-100 font-sans">
+<body>
 
     <!-- Barra di caricamento (non blocca interazioni mappa) -->
-    <div id="loader" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1200] hidden pointer-events-none">
-        <div class="bg-slate-900/90 text-white px-4 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700 backdrop-blur-sm">
-            <div class="loader ease-linear rounded-full border-2 border-t-2 border-slate-500 h-5 w-5"></div>
-            <p id="loader-text" class="text-xs md:text-sm font-semibold text-center" data-i18n="loading" aria-live="polite">Caricamento...</p>
+    <div id="loader" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[1200] hidden pointer-events-none">
+        <div class="relative overflow-hidden bg-[#0e1b33]/90 text-white pl-2.5 pr-5 py-2.5 rounded-full shadow-2xl flex items-center gap-3 border border-white/10 backdrop-blur-md">
+            <span class="grid place-items-center w-7 h-7 rounded-full bg-white/10">
+                <i data-lucide="radar" class="w-4 h-4 refresh-icon-spin text-[#ff8f3d]"></i>
+            </span>
+            <p id="loader-text" class="text-xs md:text-sm font-semibold" data-i18n="loading" aria-live="polite">Caricamento...</p>
+            <span class="loader-bar"></span>
         </div>
     </div>
 
+    <!-- Toast (sostituisce alert) -->
+    <div id="toast" role="status" aria-live="polite" class="fixed top-20 left-1/2 z-[1300] glass rounded-full px-4 py-2 text-sm font-semibold flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-[#ff6a13]"></i><span id="toast-text"></span>
+    </div>
+
     <!-- Barra di Ricerca Superiore -->
-    <div class="fixed top-4 left-1/2 -translate-x-1/2 z-[1001] w-[90%] max-w-md">
-        <div class="bg-white rounded-full shadow-2xl flex items-center px-4 py-2 border border-gray-200">
-            <i data-lucide="search" class="text-gray-400 w-5 h-5 mr-2"></i>
-            <input type="text" id="search-input" data-i18n-placeholder="search_placeholder" placeholder="Cerca località..." 
-                   class="flex-1 bg-transparent border-none focus:outline-none text-sm text-gray-700 py-1">
-            <button onclick="searchLocation()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition ml-2">
+    <div class="fixed top-4 left-1/2 -translate-x-1/2 z-[1001] w-[92%] max-w-md">
+        <div class="search-shell enter glass rounded-full flex items-center pl-4 pr-1.5 py-1.5">
+            <i data-lucide="search" class="search-ic text-slate-400 w-5 h-5 mr-2 shrink-0"></i>
+            <input type="text" id="search-input" data-i18n-placeholder="search_placeholder" placeholder="Cerca località..."
+                   class="flex-1 min-w-0 bg-transparent border-none focus:outline-none text-[15px] text-slate-800 placeholder:text-slate-400 py-1.5">
+            <button id="search-btn" onclick="searchLocation()" class="go-btn text-white w-9 h-9 grid place-items-center rounded-full ml-2 shrink-0" aria-label="Cerca">
                 <i data-lucide="arrow-right" class="w-4 h-4"></i>
             </button>
         </div>
-        <p id="search-help-box" class="mt-2 px-4 py-2 rounded-lg bg-white/90 shadow text-[11px] text-gray-600 border border-gray-200 hidden" data-i18n="search_help">
-            Ricerca globale: città o CAP. Per CAP ambigui aggiungi paese ISO2 (es. 42015 it, 90210 us, 28013 es).
-        </p>
+        <div id="search-help-box" class="panel mt-2 px-4 py-2.5 rounded-2xl glass text-xs text-slate-600 hidden flex gap-2">
+            <i data-lucide="lightbulb" class="w-4 h-4 text-[#ff6a13] shrink-0 mt-px"></i>
+            <span data-i18n="search_help">Ricerca globale: città o CAP. Per CAP ambigui aggiungi paese ISO2 (es. 42015 it, 90210 us, 28013 es).</span>
+        </div>
     </div>
 
     <!-- Pulsanti laterali + pannelli -->
     <div class="fixed top-40 md:top-20 right-4 z-[1000] flex flex-col items-end gap-3">
-        <div class="flex flex-col gap-2">
-            <button onclick="toggleLayersPanel()" class="bg-white p-3 rounded-full shadow-xl border border-gray-200 text-slate-700 hover:bg-slate-50 transition" title="Mostra/Nascondi layers">
+        <div class="flex flex-col gap-2.5">
+            <button id="layers-btn" onclick="toggleLayersPanel()" class="fab glass enter" style="--d:80ms" title="Mostra/Nascondi layers" aria-label="Layers">
                 <i data-lucide="layers" class="w-5 h-5"></i>
             </button>
-            <button onclick="fetchData(true)" class="bg-blue-600 text-white p-3 rounded-full shadow-xl border border-blue-700 hover:bg-blue-700 transition" title="Aggiorna area">
-                <i id="refresh-icon" data-lucide="refresh-cw" class="w-5 h-5 text-white"></i>
+            <button onclick="fetchData(true)" class="fab fab-primary enter" style="--d:140ms" title="Aggiorna area" aria-label="Aggiorna area">
+                <i id="refresh-icon" data-lucide="refresh-cw" class="w-5 h-5"></i>
             </button>
-            <button onclick="toggleInfoPanel()" class="bg-white p-3 rounded-full shadow-xl border border-gray-200 text-slate-700 hover:bg-slate-50 transition" title="Mostra/Nascondi dettagli">
+            <button id="info-btn" onclick="toggleInfoPanel()" class="fab glass enter" style="--d:200ms" title="Mostra/Nascondi dettagli" aria-label="Info">
                 <i data-lucide="info" class="w-5 h-5"></i>
             </button>
         </div>
 
-        <div id="layers-panel" class="bg-white p-5 rounded-xl shadow-2xl border border-gray-200 w-64 md:w-72 hidden">
-            <h1 class="text-lg font-bold text-blue-900 flex items-center gap-2 mb-2">
-                <i data-lucide="shield-alert"></i> <span data-i18n="title">Emergenza CPA</span>
-            </h1>
-
-            <div class="border-t pt-3">
-                <p class="text-xs font-bold text-gray-400 mb-3 uppercase" data-i18n="legend_title">Legenda Aree:</p>
-                <div class="space-y-2 text-xs">
-                    <label class="flex items-center gap-3 cursor-pointer group">
-                        <input type="checkbox" checked class="filter-check w-4 h-4 rounded" value="waiting">
-                        <span class="w-4 h-4 rounded-sm bg-green-500 border border-green-700"></span>
-                        <span class="group-hover:text-blue-600 transition text-gray-700 font-medium" data-i18n="waiting">Attesa</span>
-                    </label>
-                    <label class="flex items-center gap-3 cursor-pointer group">
-                        <input type="checkbox" checked class="filter-check w-4 h-4 rounded" value="camp">
-                        <span class="w-4 h-4 rounded-sm bg-red-600 border border-red-800"></span>
-                        <span class="group-hover:text-blue-600 transition text-gray-700 font-medium" data-i18n="camp">Ricovero</span>
-                    </label>
-                    <label class="flex items-center gap-3 cursor-pointer group">
-                        <input type="checkbox" checked class="filter-check w-4 h-4 rounded" value="staging">
-                        <span class="w-4 h-4 rounded-sm bg-yellow-400 border border-yellow-600"></span>
-                        <span class="group-hover:text-blue-600 transition text-gray-700 font-medium" data-i18n="staging">Ammassamento</span>
-                    </label>
-                    <label class="flex items-center gap-3 cursor-pointer group">
-                        <input type="checkbox" checked class="filter-check w-4 h-4 rounded" value="logistic">
-                        <span class="w-4 h-4 rounded-sm bg-purple-600 border border-purple-800"></span>
-                        <span class="group-hover:text-blue-600 transition text-gray-700 font-medium" data-i18n="logistic">Logistica</span>
-                    </label>
+        <div id="layers-panel" class="panel glass p-4 rounded-2xl w-72 hidden">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="grid place-items-center w-10 h-10 rounded-xl text-white shadow-lg" style="background:linear-gradient(135deg,#ff8f3d,#ff6a13)">
+                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                </span>
+                <div>
+                    <h1 class="font-cond text-xl leading-none font-bold text-[#0e1b33] uppercase" data-i18n="title">Emergenza CPA</h1>
+                    <p class="text-[11px] text-slate-500 mt-1">OpenStreetMap · Overpass</p>
                 </div>
+            </div>
+
+            <p class="font-cond text-[11px] font-bold text-slate-400 mb-1 px-1 uppercase tracking-widest" data-i18n="legend_title">Legenda Aree:</p>
+            <div class="text-sm">
+                <label class="legend-row">
+                    <input type="checkbox" checked class="filter-check sr-only" value="waiting">
+                    <span class="swatch" style="--c:#22c55e"></span>
+                    <span class="label flex-1 font-medium text-slate-700" data-i18n="waiting">Attesa</span>
+                    <span class="count" data-count="waiting">0</span>
+                    <span class="switch"></span>
+                </label>
+                <label class="legend-row">
+                    <input type="checkbox" checked class="filter-check sr-only" value="camp">
+                    <span class="swatch" style="--c:#dc2626"></span>
+                    <span class="label flex-1 font-medium text-slate-700" data-i18n="camp">Ricovero</span>
+                    <span class="count" data-count="camp">0</span>
+                    <span class="switch"></span>
+                </label>
+                <label class="legend-row">
+                    <input type="checkbox" checked class="filter-check sr-only" value="staging">
+                    <span class="swatch" style="--c:#eab308"></span>
+                    <span class="label flex-1 font-medium text-slate-700" data-i18n="staging">Ammassamento</span>
+                    <span class="count" data-count="staging">0</span>
+                    <span class="switch"></span>
+                </label>
+                <label class="legend-row">
+                    <input type="checkbox" checked class="filter-check sr-only" value="logistic">
+                    <span class="swatch" style="--c:#9333ea"></span>
+                    <span class="label flex-1 font-medium text-slate-700" data-i18n="logistic">Logistica</span>
+                    <span class="count" data-count="logistic">0</span>
+                    <span class="switch"></span>
+                </label>
             </div>
         </div>
 
-        <div id="info-box" class="bg-white p-4 rounded-xl shadow-lg border border-gray-200 w-64 md:w-72 hidden">
-            <h3 class="font-bold text-gray-800 border-b pb-2 mb-2 text-xs flex justify-between items-center">
-                <span data-i18n="details_title">Dettagli Poligono</span>
-                <button onclick="document.getElementById('info-box').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">×</button>
-            </h3>
-            <div id="info-content" class="text-[10px] space-y-1 text-gray-600 max-h-40 overflow-y-auto font-mono"></div>
+        <div id="info-box" class="panel glass p-4 rounded-2xl w-72 hidden">
+            <div class="flex justify-between items-center mb-2">
+                <span class="font-cond text-[11px] font-bold text-slate-400 uppercase tracking-widest" data-i18n="details_title">Dettagli Poligono</span>
+                <button onclick="closeInfoBox()" class="w-7 h-7 grid place-items-center rounded-full text-slate-400 hover:text-slate-800 hover:bg-slate-900/5 transition hover:rotate-90" aria-label="Chiudi">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div id="info-content" class="scroll-soft max-h-56 overflow-y-auto pr-1"></div>
         </div>
     </div>
 
     <div class="fixed bottom-8 left-4 z-[1000]">
-        <button onclick="locateUser()" class="bg-white p-3 rounded-full shadow-xl border border-gray-200 text-blue-600 hover:bg-blue-50 transition">
-            <i data-lucide="map-pin"></i>
+        <button id="locate-btn" onclick="locateUser()" class="fab glass enter" style="--d:260ms; color:#2563eb" title="La mia posizione" aria-label="La mia posizione">
+            <i data-lucide="locate-fixed" class="w-5 h-5"></i>
         </button>
     </div>
 
@@ -144,6 +303,7 @@
                 logistic: "Logistica (Entry)",
                 details_title: "Dettagli Poligono",
                 not_found: "Località non trovata.",
+                search_error: "Errore durante la ricerca. Riprova.",
                 no_data: "Nessun poligono trovato in quest'area.",
                 osm_link: "Apri in OSM ↗",
                 capacity: "Capacità",
@@ -162,6 +322,7 @@
                 logistic: "Logistic Entry",
                 details_title: "Polygon Details",
                 not_found: "Location not found.",
+                search_error: "Search failed. Please try again.",
                 no_data: "No CPA polygons found here.",
                 osm_link: "Open in OSM ↗",
                 capacity: "Capacity",
@@ -188,10 +349,94 @@
         lucide.createIcons();
 
         // Inizializzazione mappa
-        const map = L.map('map', { 
-            zoomControl: false,
-            preferCanvas: true 
+        // Renderer SVG (non canvas): serve per le animazioni CSS su poligoni e selezione.
+        const map = L.map('map', {
+            zoomControl: false
         }).setView([45.6717, 11.9276], 14);
+
+        // --- Helper UI: apertura/chiusura animata ---
+        function isOpen(el) {
+            return !el.classList.contains('hidden') && !el.classList.contains('is-closing');
+        }
+
+        function showEl(el) {
+            el.classList.remove('hidden', 'is-closing');
+        }
+
+        function hideEl(el) {
+            if (!isOpen(el)) return;
+            el.classList.add('is-closing');
+            el.addEventListener('animationend', () => {
+                if (!el.classList.contains('is-closing')) return; // riaperto nel frattempo
+                el.classList.remove('is-closing');
+                el.classList.add('hidden');
+            }, { once: true });
+        }
+
+        function syncButtons() {
+            document.getElementById('layers-btn').classList.toggle('is-active', isOpen(document.getElementById('layers-panel')));
+            document.getElementById('info-btn').classList.toggle('is-active',
+                isOpen(document.getElementById('info-box')) || isOpen(document.getElementById('search-help-box')));
+        }
+
+        let toastTimer = null;
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').textContent = message;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+        }
+
+        // I tag OSM sono dati esterni: escape prima di metterli in innerHTML.
+        function esc(value) {
+            return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function updateCounts() {
+            document.querySelectorAll('[data-count]').forEach(el => {
+                const next = String(layers[el.dataset.count].getLayers().length);
+                if (el.textContent === next) return;
+                el.textContent = next;
+                el.classList.remove('bump');
+                void el.offsetWidth; // riavvia l'animazione
+                el.classList.add('bump');
+            });
+        }
+
+        let selectedPath = null;
+        function setSelected(layer) {
+            if (selectedPath) selectedPath.classList.remove('is-selected');
+            selectedPath = layer && layer.getElement ? layer.getElement() : null;
+            if (selectedPath) selectedPath.classList.add('is-selected');
+        }
+
+        function closeInfoBox() {
+            hideEl(document.getElementById('info-box'));
+            setSelected(null);
+            syncButtons();
+        }
+
+        function tagsHtml(title, tags) {
+            const rows = Object.keys(tags).map((key, i) =>
+                `<div class="tag-row" style="--i:${i}"><span class="k">${esc(key)}</span><span class="v">${esc(tags[key])}</span></div>`
+            ).join('');
+            return `<div class="tag-title">${esc(title)}</div>${rows}`;
+        }
+
+        function popupHtml(color, kicker, title, tags, osmUrl) {
+            return `
+                <div class="popup-card" style="--c:${color}">
+                    <span class="popup-kicker">${esc(kicker)}</span>
+                    <strong class="popup-title">${esc(title)}</strong>
+                    <div class="popup-meta">
+                        ${tags.operator ? `<div><b>${translations.operator}:</b> ${esc(tags.operator)}</div>` : ''}
+                        ${tags.capacity ? `<div><b>${translations.capacity}:</b> ${esc(tags.capacity)}</div>` : ''}
+                    </div>
+                    <a href="${osmUrl}" target="_blank" rel="noopener" class="popup-link">${translations.osm_link}</a>
+                </div>
+            `;
+        }
 
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -356,7 +601,9 @@
             if (!input) return;
 
             const loader = document.getElementById('loader');
-            loader.classList.remove('hidden');
+            const searchBtn = document.getElementById('search-btn');
+            showEl(loader);
+            searchBtn.classList.add('is-busy');
 
             try {
                 const isPostalSearch = isLikelyCAP(input);
@@ -397,53 +644,56 @@
                 const bestResult = pickBestResult(data || [], normalizedInput, center, isPostalSearch);
 
                 if (bestResult) {
-                    map.setView([bestResult.lat, bestResult.lon], 14);
-                    fetchData();
+                    // flyTo scatena moveend -> fetchData (debounced)
+                    map.flyTo([bestResult.lat, bestResult.lon], 14, { duration: 1.2 });
+                    document.getElementById('search-input').blur();
                 } else {
-                    alert(translations.not_found);
+                    showToast(translations.not_found);
                 }
             } catch (error) {
-                alert('Error');
+                showToast(translations.search_error);
             } finally {
-                loader.classList.add('hidden');
+                hideEl(loader);
+                searchBtn.classList.remove('is-busy');
             }
         }
 
         document.getElementById('search-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') searchLocation(); });
 
-        function locateUser() { 
-            map.locate({setView: true, maxZoom: 15, timeout: 5000}); 
+        function locateUser() {
+            document.getElementById('locate-btn').classList.add('is-locating');
+            map.locate({setView: true, maxZoom: 15, timeout: 5000});
         }
 
 
         function toggleLayersPanel() {
             const panel = document.getElementById('layers-panel');
-            panel.classList.toggle('hidden');
+            if (isOpen(panel)) hideEl(panel); else showEl(panel);
+            syncButtons();
         }
 
         function toggleInfoPanel() {
             const infoPanel = document.getElementById('info-box');
             const searchHelpBox = document.getElementById('search-help-box');
-            const isAnyVisible = !infoPanel.classList.contains('hidden') || !searchHelpBox.classList.contains('hidden');
 
-            if (isAnyVisible) {
-                infoPanel.classList.add('hidden');
-                searchHelpBox.classList.add('hidden');
-                return;
+            if (isOpen(infoPanel) || isOpen(searchHelpBox)) {
+                closeInfoBox();
+                hideEl(searchHelpBox);
+            } else {
+                showEl(searchHelpBox);
             }
-
-            searchHelpBox.classList.remove('hidden');
+            syncButtons();
         }
 
         function showInfoPanel(contentHtml) {
             const infoBox = document.getElementById('info-box');
-            const layersPanel = document.getElementById('layers-panel');
-            const searchHelpBox = document.getElementById('search-help-box');
             const infoContent = document.getElementById('info-content');
-            layersPanel.classList.add('hidden');
-            searchHelpBox.classList.add('hidden');
-            infoBox.classList.remove('hidden');
+            hideEl(document.getElementById('layers-panel'));
+            hideEl(document.getElementById('search-help-box'));
+            showEl(infoBox);
             infoContent.innerHTML = contentHtml;
+            infoContent.scrollTop = 0;
+            syncButtons();
         }
 
         function getAreaType(tags) {
@@ -465,31 +715,17 @@
             const polygon = L.polygon(coordinates, {
                 color: style.color,
                 fillColor: style.color,
-                fillOpacity: 0.35,
-                weight: 3
+                fillOpacity: 0.3,
+                weight: 3,
+                lineJoin: 'round',
+                className: 'cpa-area'
             });
 
-            const popupContent = `
-                <div class="p-1 min-w-[180px]">
-                    <div class="text-[9px] uppercase font-black text-gray-400 tracking-tighter">${style.label}</div>
-                    <strong class="text-sm block border-b pb-1 mb-1 text-slate-800">${getFeatureName(tags, 'Area Poligonale', 'Polygon Area')}</strong>
-                    <div class="text-[11px] text-gray-600">
-                        ${tags.operator ? `<div><b>${translations.operator}:</b> ${tags.operator}</div>` : ''}
-                        ${tags.capacity ? `<div><b>${translations.capacity}:</b> ${tags.capacity}</div>` : ''}
-                    </div>
-                    <a href="https://www.openstreetmap.org/way/${el.id}" target="_blank" class="text-blue-600 text-[10px] font-bold mt-2 block hover:underline italic">${translations.osm_link}</a>
-                </div>
-            `;
-            polygon.bindPopup(popupContent);
+            const name = getFeatureName(tags, 'Area Poligonale', 'Polygon Area');
+            polygon.bindPopup(popupHtml(style.color, style.label, name, tags, `https://www.openstreetmap.org/way/${el.id}`));
             polygon.on('click', () => {
-                let html = `<div class="font-bold text-slate-800 mb-2 border-b pb-1 text-xs">${tags.name || 'Metadati'}</div>`;
-                for (let key in tags) {
-                    html += `<div class="flex justify-between gap-3 border-b border-gray-50 py-1">
-                        <span class="text-gray-400" style="font-size: 8px;">${key}</span>
-                        <span class="text-right font-medium text-slate-700">${tags[key]}</span>
-                    </div>`;
-                }
-                showInfoPanel(html);
+                showInfoPanel(tagsHtml(tags.name || 'Metadati', tags));
+                setSelected(polygon);
             });
             if (layers[type]) polygon.addTo(layers[type]);
             else polygon.addTo(layers.other);
@@ -501,36 +737,21 @@
             if (el.type !== 'node' || !el.lat || !el.lon || tags.man_made !== 'sign' || type === 'other') return;
 
             const style = config[type] || { color: '#64748b', label: 'Sign' };
-            const marker = L.circleMarker([el.lat, el.lon], {
-                radius: 7,
-                color: '#1f2937',
-                weight: 1.5,
-                fillColor: style.color,
-                fillOpacity: 0.95
+            const marker = L.marker([el.lat, el.lon], {
+                icon: L.divIcon({
+                    className: 'cpa-sign',
+                    html: `<span class="ring" style="--c:${style.color}"></span><span class="dot" style="--c:${style.color}"></span>`,
+                    iconSize: [20, 20],
+                    popupAnchor: [0, -10]
+                })
             });
 
-            const popupContent = `
-                <div class="p-1 min-w-[180px]">
-                    <div class="text-[9px] uppercase font-black text-gray-400 tracking-tighter">${style.label} · ${currentLang === 'it' ? 'Cartello' : 'Sign'}</div>
-                    <strong class="text-sm block border-b pb-1 mb-1 text-slate-800">${getFeatureName(tags, 'Cartello emergenza', 'Emergency sign')}</strong>
-                    <div class="text-[11px] text-gray-600">
-                        ${tags.operator ? `<div><b>${translations.operator}:</b> ${tags.operator}</div>` : ''}
-                        ${tags.capacity ? `<div><b>${translations.capacity}:</b> ${tags.capacity}</div>` : ''}
-                    </div>
-                    <a href="https://www.openstreetmap.org/node/${el.id}" target="_blank" class="text-blue-600 text-[10px] font-bold mt-2 block hover:underline italic">${translations.osm_link}</a>
-                </div>
-            `;
-
-            marker.bindPopup(popupContent);
+            const name = getFeatureName(tags, 'Cartello emergenza', 'Emergency sign');
+            const kicker = `${style.label} · ${currentLang === 'it' ? 'Cartello' : 'Sign'}`;
+            marker.bindPopup(popupHtml(style.color, kicker, name, tags, `https://www.openstreetmap.org/node/${el.id}`));
             marker.on('click', () => {
-                let html = `<div class="font-bold text-slate-800 mb-2 border-b pb-1 text-xs">${getFeatureName(tags, 'Cartello emergenza', 'Emergency sign')}</div>`;
-                for (let key in tags) {
-                    html += `<div class="flex justify-between gap-3 border-b border-gray-50 py-1">
-                        <span class="text-gray-400" style="font-size: 8px;">${key}</span>
-                        <span class="text-right font-medium text-slate-700">${tags[key]}</span>
-                    </div>`;
-                }
-                showInfoPanel(html);
+                showInfoPanel(tagsHtml(name, tags));
+                setSelected(null);
             });
 
             marker.addTo(layers[type]);
@@ -554,6 +775,8 @@
                 overpassCache.clear();
                 loadedElementIds.clear();
                 Object.values(layers).forEach(l => l.clearLayers());
+                setSelected(null);
+                updateCounts();
             }
 
             if (!forceRefresh && cachedData) {
@@ -576,7 +799,7 @@
             const loader = document.getElementById('loader');
             if (isManualRefresh) {
                 updateLoaderText(translations.loading);
-                loader.classList.remove('hidden');
+                showEl(loader);
                 setRefreshSpinning(true);
             }
 
@@ -615,7 +838,7 @@
                 if (isManualRefresh) {
                     setRefreshSpinning(false);
                     updateLoaderText(translations.loading);
-                    loader.classList.add('hidden');
+                    hideEl(loader);
                 }
             }
         }
@@ -642,6 +865,8 @@
                 loadedElementIds.add(uniqueId);
                 createSignFeature(s);
             });
+
+            updateCounts();
         }
 
         document.querySelectorAll('.filter-check').forEach(check => {
@@ -652,10 +877,29 @@
             });
         });
 
-        map.on('locationfound', fetchData);
+        let userMarker = null;
+        map.on('locationfound', (e) => {
+            document.getElementById('locate-btn').classList.remove('is-locating');
+            if (!userMarker) {
+                userMarker = L.marker(e.latlng, {
+                    interactive: false,
+                    zIndexOffset: 1000,
+                    icon: L.divIcon({ className: 'user-loc', html: '<span class="ring"></span><span class="dot"></span>', iconSize: [22, 22] })
+                }).addTo(map);
+            } else {
+                userMarker.setLatLng(e.latlng);
+            }
+            // Prima veniva passato l'evento come forceRefresh (truthy): svuotava la cache e mostrava il loader.
+            fetchData();
+        });
         map.on('locationerror', () => {
+            document.getElementById('locate-btn').classList.remove('is-locating');
             console.log("Geolocalizzazione fallita. Fallback.");
             fetchData();
+        });
+
+        map.on('popupclose', () => {
+            if (!isOpen(document.getElementById('info-box'))) setSelected(null);
         });
 
         let fetchDebounce = null;
